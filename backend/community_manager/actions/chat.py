@@ -890,7 +890,8 @@ class CommunityManagerTaskChatAction:
             (sticker_rules_chat_ids, gift_rules_chat_ids),
             (sticker_owners_telegram_ids, gift_owners_telegram_ids),
         ):
-            if not user_ids:
+            # If there are no active chats with these rules – skip processing
+            if not chat_ids or not user_ids:
                 continue
 
             users = self.user_service.get_all(telegram_ids=user_ids)
