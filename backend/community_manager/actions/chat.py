@@ -863,6 +863,9 @@ class CommunityManagerTaskChatAction:
             target_chat_members.update(
                 {(cm.chat_id, cm.user_id) for cm in chat_members}
             )
+            logger.info(
+                f"Retrieved {len(chat_members)} chat connections from the DB by wallet."
+            )
 
         sticker_rules_chat_ids = {}
         gift_rules_chat_ids = {}
@@ -872,12 +875,14 @@ class CommunityManagerTaskChatAction:
                 enabled_only=True
             )
             sticker_rules_chat_ids = {r.chat_id for r in rules}
+            logger.info(f"Retrieved {len(rules)} sticker rules from the DB.")
 
         if gift_owners_telegram_ids:
             rules = self.telegram_chat_gift_collection_service.get_all(
                 enabled_only=True,
             )
             gift_rules_chat_ids = {r.chat_id for r in rules}
+            logger.info(f"Retrieved {len(rules)} gift rules from the DB.")
 
         for chat_ids, user_ids in zip(
             (sticker_rules_chat_ids, gift_rules_chat_ids),
@@ -895,6 +900,7 @@ class CommunityManagerTaskChatAction:
                     for chat_member in chat_members
                 }
             )
+            logger.info(f"Retrieved {len(chat_members)} chat members from the DB.")
 
         return TargetChatMembersDTO(
             wallets=wallets,
