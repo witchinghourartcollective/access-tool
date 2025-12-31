@@ -45,6 +45,5 @@ def log_queue_stats_on_startup(sender, **kwargs):
             f"Celery queue stats - Reserved: {reserved_count}, "
             f"Active: {active_count}, Scheduled: {scheduled_count}"
         )
-        logger.info(f"Broker URL: {community_manager_settings.broker_url!r}")
     except Exception as e:
         logger.warning(f"Could not fetch Celery queue stats: {e}")
