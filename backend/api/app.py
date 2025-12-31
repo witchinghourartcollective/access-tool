@@ -21,6 +21,10 @@ logging.basicConfig(
     format="%(levelname)s\t%(asctime)s - %(message)s",
     level=logging.INFO,
 )
+logger = logging.getLogger(__name__)
+logger.info(
+    f"Starting API server with Redis connection string: {api_settings.broker_url!r}"
+)
 
 
 if api_settings.sentry_dns:

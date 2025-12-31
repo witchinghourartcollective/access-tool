@@ -1,5 +1,6 @@
 import logging
 from datetime import timedelta, datetime
+from typing import Any
 
 import jwt
 
@@ -14,8 +15,8 @@ class UnauthorizedError(Exception):
 
 class AuthenticationService:
     @classmethod
-    def create_access_token(cls, user_id: int, expires_in: int):
-        to_encode = {"sub": str(user_id)}
+    def create_access_token(cls, user_id: int, expires_in: int) -> str:
+        to_encode: dict[str, Any] = {"sub": str(user_id)}
         expire = datetime.now() + timedelta(seconds=expires_in)
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(
