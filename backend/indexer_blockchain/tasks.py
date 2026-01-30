@@ -52,6 +52,23 @@ def fetch_wallet_details(address: str) -> None:
     )
 
     with DBService().db_session() as db_session:
+        # Pre-calculate whitelist collection addresses for NFT fetch
+        nft_collection_service = NftCollectionService(db_session)
+        whitelisted_nfts = nft_collection_service.get_whitelisted()
+        whitelist_collection_addresses = [
+            collection.address for collection in whitelisted_nfts
+        ]
+
+    # Perform async NFT fetch OUTSIDE the DB session
+    nft_items: NftItems = asyncio.run(
+        get_all_nfts_per_user(
+            blockchain_service=blockchain_service,
+            address=address,
+            nft_collections=whitelist_collection_addresses,
+        )
+    )
+
+    with DBService().db_session() as db_session:
         wallet_service = WalletService(db_session)
         wallet_service.set_balance(
             account_info.address.to_raw(),
@@ -66,26 +83,21 @@ def fetch_wallet_details(address: str) -> None:
         jetton_wallet_service.bulk_create_or_update(
             jettons_balances, whitelisted_jettons, owner_address=address
         )
-        logger.info(f"Jettons for {address!r} fetched.")
+        logger.info(f"Jettons for {address!r} updated.")
 
-        nft_collection_service = NftCollectionService(db_session)
-        whitelisted_nfts = nft_collection_service.get_whitelisted()
-        whitelist_collection_addresses = [
-            collection.address for collection in whitelisted_nfts
+        active_jetton_wallets = [
+            balance.wallet_address.address.to_raw()
+            for balance in jettons_balances.balances
         ]
+        jetton_wallet_service.delete_missing(address, active_jetton_wallets)
 
-    nft_items: NftItems = asyncio.run(
-        get_all_nfts_per_user(
-            blockchain_service=blockchain_service,
-            address=address,
-            nft_collections=whitelist_collection_addresses,
-        )
-    )
-    with DBService().db_session() as db_session:
         nft_service = NftItemService(db_session)
         nft_service.bulk_create_or_update(nft_items, whitelist_collection_addresses)
 
-    logger.info(f"NFT items for {address!r} fetched.")
+        active_nft_items = [item.address.to_raw() for item in nft_items.nft_items]
+        nft_service.delete_missing(address, active_nft_items)
+
+    logger.info(f"NFT items for {address!r} updated.")
     redis_service = RedisService()
     redis_service.add_to_set(UPDATED_WALLETS_SET_NAME, address)
 

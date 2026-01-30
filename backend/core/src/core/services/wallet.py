@@ -1,5 +1,6 @@
 import logging
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
+from core.utils.misc import batched
 
 from pytonapi.schema.jettons import JettonBalance, JettonsBalances
 from sqlalchemy import select
@@ -274,3 +275,37 @@ class JettonWalletService(BaseService):
 
     def count(self) -> int:
         return self.db_session.query(JettonWallet).count()
+
+    def delete_missing(self, owner_address: str, keep_addresses: Sequence[str]) -> None:
+        """
+        Deletes Jetton Wallets for the given owner that are NOT in the keep_addresses list.
+
+        :param owner_address: The address of the wallet owner
+        :param keep_addresses: List of Jetton Wallet addresses to keep (active)
+        """
+        # 1. Fetch all existing Jetton Wallet addresses for this owner
+        existing_wallets_query = self.db_session.query(JettonWallet.address).filter(
+            JettonWallet.owner_address == owner_address
+        )
+        existing_addresses = {
+            wallet_addr[0] for wallet_addr in existing_wallets_query.all()
+        }
+
+        # 2. Calculate addresses to delete
+        keep_addresses_set = set(keep_addresses)
+        to_delete = list(existing_addresses - keep_addresses_set)
+
+        if not to_delete:
+            return
+
+        logger.info(
+            f"Deleting {len(to_delete)} stale Jetton Wallets for owner {owner_address!r}"
+        )
+
+        # 3. Batch delete in chunks
+        for chunk in batched(to_delete, DEFAULT_DB_QUERY_MAX_PARAMETERS_SIZE):
+            self.db_session.query(JettonWallet).filter(
+                JettonWallet.address.in_(chunk)
+            ).delete(synchronize_session=False)
+
+        self.db_session.flush()

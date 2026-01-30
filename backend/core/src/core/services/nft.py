@@ -1,4 +1,6 @@
 import logging
+from collections.abc import Sequence
+from core.utils.misc import batched
 
 from pytonapi.schema.nft import NftItem as TONNftItem, NftItems
 from sqlalchemy import desc
@@ -10,6 +12,7 @@ from core.dtos.resource import (
     NftCollectionMetadataDTO,
     NftCollectionDTO,
 )
+from core.constants import DEFAULT_DB_QUERY_MAX_PARAMETERS_SIZE
 from core.services.base import BaseService
 
 
@@ -164,3 +167,35 @@ class NftItemService(BaseService):
 
     def count(self) -> int:
         return self.db_session.query(NftItem).count()
+
+    def delete_missing(self, owner_address: str, keep_addresses: Sequence[str]) -> None:
+        """
+        Deletes NFT Items for the given owner that are NOT in the keep_addresses list.
+
+        :param owner_address: The address of the wallet owner
+        :param keep_addresses: List of NFT Item addresses to keep (active)
+        """
+        # 1. Fetch all existing NFT Item addresses for this owner
+        existing_items_query = self.db_session.query(NftItem.address).filter(
+            NftItem.owner_address == owner_address
+        )
+        existing_addresses = {nft_addr[0] for nft_addr in existing_items_query.all()}
+
+        # 2. Calculate addresses to delete
+        keep_addresses_set = set(keep_addresses)
+        to_delete = list(existing_addresses - keep_addresses_set)
+
+        if not to_delete:
+            return
+
+        logger.info(
+            f"Deleting {len(to_delete)} stale NFT Items for owner {owner_address!r}"
+        )
+
+        # 3. Batch delete in chunks
+        for chunk in batched(to_delete, DEFAULT_DB_QUERY_MAX_PARAMETERS_SIZE):
+            self.db_session.query(NftItem).filter(NftItem.address.in_(chunk)).delete(
+                synchronize_session=False
+            )
+
+        self.db_session.flush()
