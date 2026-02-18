@@ -32,6 +32,9 @@ def start_health_check_server(is_healthy_callback: Callable[[], bool]):
                 self.send_response(404)
                 self.end_headers()
 
-    with socketserver.TCPServer(("", 8080), HealthCheckHandler) as httpd:
+    class ReusableTCPServer(socketserver.TCPServer):
+        allow_reuse_address = True
+
+    with ReusableTCPServer(("", 8080), HealthCheckHandler) as httpd:
         logger.info("Health check server running on port 8080")
         httpd.serve_forever()
