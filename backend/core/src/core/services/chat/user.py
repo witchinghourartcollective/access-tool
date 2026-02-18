@@ -193,7 +193,7 @@ class TelegramChatUserService(BaseService):
                     )
                 )
             )
-            users = self.db_session.execute(stmt).scalars().all()
+            users = self.db_session.execute(stmt).scalars().unique().all()
 
             if not users:
                 break
