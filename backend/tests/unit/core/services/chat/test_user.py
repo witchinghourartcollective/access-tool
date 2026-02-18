@@ -1,10 +1,13 @@
 import pytest
+from sqlalchemy.orm import Session
+
+from core.models.chat import TelegramChatUser
 from core.services.chat.user import TelegramChatUserService
 from tests.factories import TelegramChatFactory, TelegramChatUserFactory, UserFactory
 
 
 @pytest.mark.asyncio
-async def test_yield_all_for_chat_batching(db_session):
+async def test_yield_all_for_chat_batching(db_session: Session) -> None:
     # Setup
     chat = TelegramChatFactory.with_session(db_session).create()
     service = TelegramChatUserService(db_session)
@@ -19,7 +22,7 @@ async def test_yield_all_for_chat_batching(db_session):
         users.append(chat_user)
 
     # Test
-    batches = []
+    batches: list[list[TelegramChatUser]] = []
     for batch in service.yield_all_for_chat(chat.id, batch_size=10):
         batches.append(batch)
 
